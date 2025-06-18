@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+captures/
+.DS_Store
+
+# Android Studio
+*.iml
+.idea/
+.cxx/
+local.properties
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google services
+google-services.json
+
+# Log files
+*.log
