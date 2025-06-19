@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.example.thedaily.ui.components.Avatar
 import com.example.thedaily.viewmodel.ChatViewModel
 import com.example.thedaily.viewmodel.ChatViewModelFactory
+import com.example.thedaily.data.AffectionManager
 
 data class ProfileCardItem(
     val title: String,
@@ -46,6 +47,9 @@ fun ContactProfileScreen(
 
     val name = profile?.name ?: "Loading..."
     val avatarUri = profile?.avatarUri
+
+    // Subjective experience line
+    val subjectiveLine = profile?.let { AffectionManager.subjectiveExperience(it) } ?: ""
 
     // This list holds the data for our profile cards.
     val profileCards = listOf(
@@ -138,7 +142,7 @@ fun ContactProfileScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(240.dp) // Increased height for better spacing
+                        .height(260.dp) // Increased height for better spacing
                 ) {
                     // Cover photo
                     Box(
@@ -203,6 +207,18 @@ fun ContactProfileScreen(
                                 text = "Online",
                                 color = Color.Green,
                                 fontSize = 14.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Subjective experience line
+                        if (subjectiveLine.isNotBlank()) {
+                            Text(
+                                text = subjectiveLine,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }

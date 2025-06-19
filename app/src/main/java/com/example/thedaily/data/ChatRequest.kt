@@ -13,5 +13,8 @@ data class Message(
 @Serializable
 data class ChatRequest(
     val model: String,
-    val messages: List<Message>
+    val messages: List<Message>,
+    val stream: Boolean = false,
+    val temperature: Double = 0.7,
+    val max_tokens: Int? = null
 )

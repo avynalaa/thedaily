@@ -26,6 +26,8 @@ fun MessageBubble(
     isFromUser: Boolean,
     timestamp: String,
     status: MessageStatus,
+    edited: Boolean = false,
+    deleteType: com.example.thedaily.data.DeleteType = com.example.thedaily.data.DeleteType.NONE,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
@@ -52,10 +54,17 @@ fun MessageBubble(
             shape = bubbleShape,
             color = bubbleColor,
             shadowElevation = 2.dp,
-            modifier = if (status == MessageStatus.ERROR) modifier.clickable(onClick = onClick) else modifier
+            modifier = modifier
         ) {
+            val displayText = when (deleteType) {
+                com.example.thedaily.data.DeleteType.USER_ONLY -> "Message deleted (user only)"
+                com.example.thedaily.data.DeleteType.FOR_EVERYONE -> "Message deleted"
+                com.example.thedaily.data.DeleteType.CHARACTER_DELETED -> "Message deleted by character"
+                com.example.thedaily.data.DeleteType.UNDONE -> "Message undone"
+                else -> text
+            }
             Text(
-                text = text,
+                text = displayText,
                 color = if (isFromUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(16.dp)
@@ -67,7 +76,10 @@ fun MessageBubble(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = timestamp,
+                text = buildString {
+                    append(timestamp)
+                    if (edited) append(" • edited")
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.Gray
             )
@@ -78,6 +90,7 @@ fun MessageBubble(
                         MessageStatus.SENDING -> Icons.Default.AccessTime
                         MessageStatus.SENT -> Icons.Default.Done
                         MessageStatus.DELIVERED -> Icons.Default.DoneAll
+                        MessageStatus.RECEIVED -> Icons.Default.DoneAll
                         MessageStatus.READ -> Icons.Default.DoneAll
                         MessageStatus.ERROR -> Icons.Default.Error
                     },

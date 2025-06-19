@@ -1,15 +1,13 @@
 package com.example.thedaily.data
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-
 @Serializable
-data class ChatResponse(
-    val choices: List<Choice>
+data class ModelListResponse(
+    val data: List<Model>
 )
 
 @Serializable
-data class Choice(
-    val message: Message
+data class Model(
+    val id: String
 )

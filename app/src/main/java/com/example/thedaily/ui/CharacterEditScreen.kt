@@ -18,6 +18,13 @@ import com.example.thedaily.ui.components.Avatar
 import java.util.UUID
 import androidx.compose.ui.graphics.Color
 
+import android.content.Context
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CharacterEditScreen(
@@ -26,19 +33,46 @@ fun CharacterEditScreen(
     onDelete: (() -> Unit)? = null,
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
+
     var name by remember { mutableStateOf(characterProfile?.name ?: "") }
     var phoneNumber by remember {
         mutableStateOf(characterProfile?.phoneNumber ?: generateRandomPhoneNumber())
     }
     var systemPrompt by remember { mutableStateOf(characterProfile?.systemPrompt ?: "") }
     var personalityTags by remember { mutableStateOf(characterProfile?.personalityTags?.joinToString(", ") ?: "") }
-    var preferenceTags by remember { mutableStateOf(characterProfile?.preferenceTags?.joinToString(", ") ?: "") }
+    var interestTags by remember { mutableStateOf(characterProfile?.interestTags?.joinToString(", ") ?: "") }
     var dealbreakerTags by remember { mutableStateOf(characterProfile?.dealbreakerTags?.joinToString(", ") ?: "") }
     var avatarUri by remember { mutableStateOf(characterProfile?.avatarUri) }
+    var relationshipContext by remember { mutableStateOf(characterProfile?.relationshipContext ?: com.example.thedaily.data.RelationshipContext.STRANGERS) }
+    var relationshipHistory by remember { mutableStateOf(characterProfile?.relationshipHistory ?: "") }
+    var isRelationshipDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Helper to copy image to app-private storage
+    fun copyImageToInternalStorage(context: Context, uri: Uri): String? {
+        return try {
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            val fileName = "avatar_${System.currentTimeMillis()}.jpg"
+            val file = File(context.filesDir, fileName)
+            val outputStream: OutputStream = file.outputStream()
+            inputStream?.copyTo(outputStream)
+            inputStream?.close()
+            outputStream.close()
+            file.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
-        onResult = { uri -> avatarUri = uri?.toString() }
+        onResult = { uri ->
+            if (uri != null) {
+                val copiedPath = copyImageToInternalStorage(context, uri = uri)
+                avatarUri = copiedPath
+            }
+        }
     )
 
     val isFormValid = name.isNotBlank() && phoneNumber.isNotBlank() && systemPrompt.isNotBlank()
@@ -61,8 +95,10 @@ fun CharacterEditScreen(
                                 avatarUri = avatarUri,
                                 systemPrompt = systemPrompt,
                                 personalityTags = personalityTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                                preferenceTags = preferenceTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                                dealbreakerTags = dealbreakerTags.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                                interestTags = interestTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                                dealbreakerTags = dealbreakerTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                                relationshipContext = relationshipContext,
+                                relationshipHistory = relationshipHistory
                             )
                             onSave(updatedProfile)
                         },
@@ -123,17 +159,51 @@ fun CharacterEditScreen(
 
             Text("Tags (comma-separated)", style = MaterialTheme.typography.titleMedium)
 
-            OutlinedTextField(
-                value = personalityTags,
-                onValueChange = { personalityTags = it },
-                label = { Text("Personality Tags (e.g., cheerful, sarcastic)") },
+            var isPersonalityDropdownExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = isPersonalityDropdownExpanded,
+                onExpandedChange = { isPersonalityDropdownExpanded = !isPersonalityDropdownExpanded },
                 modifier = Modifier.fillMaxWidth()
-            )
+            ) {
+                OutlinedTextField(
+                    value = personalityTags,
+                    onValueChange = { personalityTags = it },
+                    label = { Text("Personality Tags") },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = isPersonalityDropdownExpanded,
+                    onDismissRequest = { isPersonalityDropdownExpanded = false }
+                ) {
+                    listOf("Friendly", "Witty", "Shy", "Outgoing", "Serious", "Spammy", "Introvert", "Extrovert", "Emotionally Unavailable", "Night Owl", "Early Bird", "Busy").forEach { tag ->
+                        DropdownMenuItem(
+                            text = { Text(tag) },
+                            onClick = {
+                                val tags = personalityTags.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList()
+                                if (tags.contains(tag)) {
+                                    tags.remove(tag)
+                                } else {
+                                    tags.add(tag)
+                                }
+                                personalityTags = tags.joinToString(", ")
+                            }
+                        )
+                    }
+                }
+            }
+            Button(
+                onClick = {
+                    // Placeholder for tag generation
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Auto-generate Tags from Description")
+            }
 
             OutlinedTextField(
-                value = preferenceTags,
-                onValueChange = { preferenceTags = it },
-                label = { Text("Likes / Preferences (e.g., sci-fi, coffee)") },
+                value = interestTags,
+                onValueChange = { interestTags = it },
+                label = { Text("Interests (e.g., sci-fi, coffee)") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -143,6 +213,41 @@ fun CharacterEditScreen(
                 label = { Text("Dislikes / Dealbreakers (e.g., dishonesty)") },
                 modifier = Modifier.fillMaxWidth()
             )
+
+           ExposedDropdownMenuBox(
+               expanded = isRelationshipDropdownExpanded,
+               onExpandedChange = { isRelationshipDropdownExpanded = !isRelationshipDropdownExpanded },
+           ) {
+               OutlinedTextField(
+                   value = relationshipContext.name,
+                   onValueChange = {},
+                   readOnly = true,
+                   label = { Text("Relationship Context") },
+                   trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isRelationshipDropdownExpanded) },
+                   modifier = Modifier.menuAnchor().fillMaxWidth()
+               )
+               ExposedDropdownMenu(
+                   expanded = isRelationshipDropdownExpanded,
+                   onDismissRequest = { isRelationshipDropdownExpanded = false }
+               ) {
+                   com.example.thedaily.data.RelationshipContext.values().forEach { context ->
+                       DropdownMenuItem(
+                           text = { Text(context.name) },
+                           onClick = {
+                               relationshipContext = context
+                               isRelationshipDropdownExpanded = false
+                           }
+                       )
+                   }
+               }
+           }
+
+           OutlinedTextField(
+               value = relationshipHistory,
+               onValueChange = { relationshipHistory = it },
+               label = { Text("How do you know each other?") },
+               modifier = Modifier.fillMaxWidth()
+           )
         }
         // Save Contact Button
         Button(
@@ -153,10 +258,12 @@ fun CharacterEditScreen(
                     avatarUri = avatarUri,
                     systemPrompt = systemPrompt,
                     personalityTags = personalityTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                    preferenceTags = preferenceTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                    dealbreakerTags = dealbreakerTags.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    interestTags = interestTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                    dealbreakerTags = dealbreakerTags.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                    relationshipContext = relationshipContext,
+                    relationshipHistory = relationshipHistory
                 )
-                onSave(updatedProfile)
+        onSave(updatedProfile)
             },
             enabled = isFormValid,
             modifier = Modifier.fillMaxWidth()
@@ -183,4 +290,3 @@ private fun generateRandomPhoneNumber(): String {
     val number = (100_000_0000..999_999_9999).random()
     return "$countryCode $number"
 }
-

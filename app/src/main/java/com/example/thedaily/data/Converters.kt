@@ -11,9 +11,14 @@ class Converters {
     }
 
     @TypeConverter
-    fun toStringList(value: String): List<String> {
-        val listType = object : TypeToken<List<String>>() {}.type
-        return Gson().fromJson(value, listType)
+    fun toStringList(value: String?): List<String> {
+        if (value.isNullOrBlank()) return emptyList()
+        return try {
+            val listType = object : TypeToken<List<String>>() {}.type
+            Gson().fromJson(value, listType) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
     
     @TypeConverter
@@ -35,5 +40,33 @@ class Converters {
     @TypeConverter
     fun toMessageStatus(status: String): MessageStatus {
         return MessageStatus.valueOf(status)
+    }
+    
+    @TypeConverter
+    fun fromRelationshipContext(context: RelationshipContext): String {
+        return context.name
+    }
+
+    @TypeConverter
+    fun toRelationshipContext(context: String): RelationshipContext {
+        return try {
+            RelationshipContext.valueOf(context)
+        } catch (e: IllegalArgumentException) {
+            RelationshipContext.STRANGERS // Default fallback
+        }
+    }
+    
+    @TypeConverter
+    fun fromDeleteType(deleteType: DeleteType): String {
+        return deleteType.name
+    }
+
+    @TypeConverter
+    fun toDeleteType(deleteType: String): DeleteType {
+        return try {
+            DeleteType.valueOf(deleteType)
+        } catch (e: IllegalArgumentException) {
+            DeleteType.NONE // Default fallback
+        }
     }
 }

@@ -6,16 +6,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import kotlin.math.abs
 
 @Composable
@@ -32,6 +34,8 @@ fun Avatar(
         .joinToString("")
 
     val backgroundColor = rememberDominantColor(name)
+    var imageLoadFailed by remember { mutableStateOf(false) }
+    var imageLoaded by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -40,18 +44,33 @@ fun Avatar(
             .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
-        if (avatarUri.isNullOrBlank()) {
+        // Show initials if no avatar URI or if image failed to load
+        if (avatarUri.isNullOrBlank() || imageLoadFailed || !imageLoaded) {
             Text(
                 text = initials,
                 color = Color.White,
                 fontSize = (size.value / 2.5).sp
             )
-        } else {
+        }
+        
+        // Try to load image if URI is provided
+        if (!avatarUri.isNullOrBlank() && !imageLoadFailed) {
             AsyncImage(
-                model = avatarUri,
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(avatarUri)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = "$name's avatar",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize()
+                modifier = Modifier.matchParentSize(),
+                onSuccess = { 
+                    imageLoaded = true
+                    imageLoadFailed = false
+                },
+                onError = { 
+                    imageLoadFailed = true
+                    imageLoaded = false
+                }
             )
         }
     }

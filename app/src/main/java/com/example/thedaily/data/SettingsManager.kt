@@ -1,34 +1,22 @@
 package com.example.thedaily.data
-import com.example.thedaily.data.ApiPreset
-import com.example.thedaily.data.CharacterProfile
 
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import kotlinx.serialization.builtins.ListSerializer
 import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.map
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.map
 
-// This line creates the actual settings file on the device.
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
-@Serializable
-data class ApiPreset(
-    val name: String,
-    val apiUrl: String,
-    val apiKey: String,
-    val modelId: String
-)
 
 class SettingsManager(context: Context) {
 
     private val dataStore = context.dataStore
-    private val json = Json { ignoreUnknownKeys = true }
+    private val gson = Gson()
 
     companion object {
         val API_URL = stringPreferencesKey("api_url")
@@ -36,9 +24,9 @@ class SettingsManager(context: Context) {
         val MODEL_ID = stringPreferencesKey("model_id")
         val PRESETS = stringPreferencesKey("presets")
         val CHARACTER_PROFILES = stringPreferencesKey("character_profiles")
+        val USER_PROFILE = stringPreferencesKey("user_profile")
     }
 
-    // This function saves the settings.
     suspend fun saveSettings(apiUrl: String, apiKey: String, modelId: String) {
         dataStore.edit { settings ->
             settings[API_URL] = apiUrl
@@ -47,10 +35,7 @@ class SettingsManager(context: Context) {
         }
     }
 
-    // This "Flow" lets other parts of our app automatically get updates
-    // whenever the settings are changed.
     val settingsFlow = dataStore.data.map { preferences ->
-        // This Triple holds the url, key, and model in that order.
         Triple(
             preferences[API_URL] ?: "",
             preferences[API_KEY] ?: "",
@@ -58,83 +43,133 @@ class SettingsManager(context: Context) {
         )
     }
 
-    // Save a new preset
     suspend fun savePreset(preset: ApiPreset) {
+        val currentPresets = presetsFlow.first().toMutableList()
+        val index = currentPresets.indexOfFirst { it.name == preset.name }
+        if (index != -1) {
+            currentPresets[index] = preset
+        } else {
+            currentPresets.add(preset)
+        }
         dataStore.edit { settings ->
-            val currentPresets = settings[PRESETS]?.let {
-                json.decodeFromString(ListSerializer(ApiPreset.serializer()), it)
-            } ?: emptyList()
-            
-            val updatedPresets = currentPresets.filter { it.name != preset.name } + preset
-            settings[PRESETS] = json.encodeToString(ListSerializer(ApiPreset.serializer()), updatedPresets)
+            settings[PRESETS] = gson.toJson(currentPresets)
         }
     }
 
-    // Delete a preset by name
     suspend fun deletePreset(presetName: String) {
+        val currentPresets = presetsFlow.first().toMutableList()
+        currentPresets.removeAll { it.name == presetName }
         dataStore.edit { settings ->
-            val currentPresets = settings[PRESETS]?.let {
-                json.decodeFromString(ListSerializer(ApiPreset.serializer()), it)
-            } ?: emptyList()
-            
-            val updatedPresets = currentPresets.filter { it.name != presetName }
-            settings[PRESETS] = json.encodeToString(ListSerializer(ApiPreset.serializer()), updatedPresets)
+            settings[PRESETS] = gson.toJson(currentPresets)
         }
     }
 
-    // Get all saved presets
     val presetsFlow = dataStore.data.map { preferences ->
         preferences[PRESETS]?.let {
-            json.decodeFromString(ListSerializer(ApiPreset.serializer()), it)
+            try {
+                val type = object : TypeToken<List<ApiPreset>>() {}.type
+                gson.fromJson<List<ApiPreset>>(it, type)
+            } catch (e: Exception) {
+                emptyList()
+            }
         } ?: emptyList()
     }
 
-    // Load a preset into the current settings
     suspend fun loadPreset(presetName: String) {
-        val presets = presetsFlow.first()
-        val preset = presets.find { it.name == presetName } ?: return
-        saveSettings(preset.apiUrl, preset.apiKey, preset.modelId)
+        val preset = presetsFlow.first().find { it.name == presetName }
+        if (preset != null) {
+            saveSettings(preset.apiUrl, preset.apiKey, preset.modelId)
+        }
     }
 
-    // --- Character Profile Management ---
-
-    val characterProfilesFlow = dataStore.data.map {
-        it[CHARACTER_PROFILES]?.let {
-            json.decodeFromString(ListSerializer(CharacterProfile.serializer()), it)
+    val characterProfilesFlow = dataStore.data.map { preferences ->
+        preferences[CHARACTER_PROFILES]?.let {
+            try {
+                val type = object : TypeToken<List<CharacterProfile>>() {}.type
+                gson.fromJson<List<CharacterProfile>>(it, type)
+            } catch (e: Exception) {
+                listOf(CharacterProfile(id = 0L, name = "Default", systemPrompt = "You are a helpful assistant.", isCurrent = true))
+            }
         } ?: listOf(CharacterProfile(id = 0L, name = "Default", systemPrompt = "You are a helpful assistant.", isCurrent = true))
     }
 
     suspend fun saveCharacterProfile(profile: CharacterProfile) {
+        val profiles = characterProfilesFlow.first().toMutableList()
+        val index = profiles.indexOfFirst { it.id == profile.id }
+        if (index != -1) {
+            profiles[index] = profile
+        } else {
+            profiles.add(profile)
+        }
         dataStore.edit {
-            val profiles = characterProfilesFlow.first().toMutableList()
-            val index = profiles.indexOfFirst { it.id == profile.id }
-            if (index >= 0) {
-                profiles[index] = profile
-            } else {
-                profiles.add(profile)
-            }
-            it[CHARACTER_PROFILES] = json.encodeToString(ListSerializer(CharacterProfile.serializer()), profiles)
+            it[CHARACTER_PROFILES] = gson.toJson(profiles)
         }
     }
 
     suspend fun deleteCharacterProfile(profileId: Long) {
+        val profiles = characterProfilesFlow.first().toMutableList()
+        profiles.removeAll { it.id == profileId }
         dataStore.edit {
-            val profiles = characterProfilesFlow.first().filter { it.id != profileId }
-            it[CHARACTER_PROFILES] = json.encodeToString(ListSerializer(CharacterProfile.serializer()), profiles)
+            it[CHARACTER_PROFILES] = gson.toJson(profiles)
         }
     }
 
     suspend fun setCurrentCharacter(profileId: Long) {
+        val profiles = characterProfilesFlow.first().map {
+            it.copy(isCurrent = it.id == profileId)
+        }
         dataStore.edit {
-            val profiles = characterProfilesFlow.first().map {
-                it.copy(isCurrent = it.id == profileId)
-            }
-            it[CHARACTER_PROFILES] = json.encodeToString(ListSerializer(CharacterProfile.serializer()), profiles)
+            it[CHARACTER_PROFILES] = gson.toJson(profiles)
         }
     }
 
-    // TEMPORARY: Call this once to clear all DataStore preferences and fix JSON migration crash
-    suspend fun clearAllPreferences() {
+    // --- Clear Data Methods ---
+
+    suspend fun clearApiData() {
+        dataStore.edit { it.remove(PRESETS) }
+    }
+
+    suspend fun clearChats() {
+        // This should be implemented in the database layer, but for now, just clear character profiles and reset affection/context
+        val profiles = characterProfilesFlow.first().map {
+            it.copy(
+                affectionLevel = 50.0,
+                mood = "Neutral",
+                relationshipContext = RelationshipContext.STRANGERS,
+                relationshipHistory = ""
+            )
+        }
+        dataStore.edit {
+            it[CHARACTER_PROFILES] = gson.toJson(profiles)
+        }
+        // You should also clear all chat messages in the database (not handled here)
+    }
+
+    suspend fun clearCharacters() {
+        dataStore.edit {
+            it.remove(CHARACTER_PROFILES)
+        }
+        // You should also clear all chat messages in the database (not handled here)
+    }
+
+    suspend fun clearEverything() {
         dataStore.edit { it.clear() }
+        // You should also clear all chat messages in the database (not handled here)
+    }
+
+    val userProfileFlow = dataStore.data.map { preferences ->
+        preferences[USER_PROFILE]?.let {
+            try {
+                gson.fromJson(it, UserProfile::class.java)
+            } catch (e: Exception) {
+                UserProfile()
+            }
+        } ?: UserProfile()
+    }
+
+    suspend fun saveUserProfile(userProfile: UserProfile) {
+        dataStore.edit { settings ->
+            settings[USER_PROFILE] = gson.toJson(userProfile)
+        }
     }
 }

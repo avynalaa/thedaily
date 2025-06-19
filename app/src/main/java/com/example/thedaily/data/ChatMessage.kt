@@ -11,8 +11,17 @@ enum class MessageStatus {
     SENDING,
     SENT,
     DELIVERED,
+    RECEIVED,
     READ,
     ERROR
+}
+
+enum class DeleteType {
+    NONE, // Not deleted
+    USER_ONLY, // User deleted for themselves, character still "sees" it
+    FOR_EVERYONE, // Deleted for both, character sees deletion
+    CHARACTER_DELETED, // Character deleted their own message
+    UNDONE // Withdrawn, app pretends it never existed
 }
 
 @Serializable
@@ -35,5 +44,24 @@ data class ChatMessage(
     val text: String,
     val isFromUser: Boolean,
     val status: MessageStatus = MessageStatus.SENT,
-    val errorMessage: String? = null
-)
+    val errorMessage: String? = null,
+    val edited: Boolean = false,
+    val editTimestamp: Long? = null,
+    val deleteType: DeleteType = DeleteType.NONE,
+    val deleteTimestamp: Long? = null
+) {
+    // Helper method to check if message is visible to user
+    fun isVisible(): Boolean {
+        return deleteType != DeleteType.FOR_EVERYONE && 
+               deleteType != DeleteType.USER_ONLY
+    }
+    
+    // Helper method to get display text
+    fun getDisplayText(): String {
+        return when {
+            deleteType == DeleteType.FOR_EVERYONE -> "This message was deleted"
+            deleteType == DeleteType.USER_ONLY -> "You deleted this message"
+            else -> text
+        }
+    }
+}

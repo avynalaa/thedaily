@@ -1,11 +1,10 @@
 package com.example.thedaily.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -14,216 +13,187 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.thedaily.data.ChatMessage
-import com.example.thedaily.ui.components.Avatar
-import com.example.thedaily.ui.components.ChatInput
-import com.example.thedaily.ui.components.MessageBubble
-import com.example.thedaily.ui.theme.MessengerBackgroundEnd
-import com.example.thedaily.ui.theme.MessengerBackgroundStart
+import androidx.lifecycle.viewmodel.compose.viewModel
+import android.app.Application
+import com.example.thedaily.data.CharacterProfile
+import com.example.thedaily.ui.components.*
 import com.example.thedaily.viewmodel.ChatViewModel
-import kotlinx.coroutines.launch
+import com.example.thedaily.viewmodel.ChatViewModelFactory
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
-    characterId: Long,
+    character: CharacterProfile,
     onNavigateBack: () -> Unit,
-    onNavigateToProfile: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel = viewModel(
+        factory = ChatViewModelFactory(
+            LocalContext.current.applicationContext as Application, 
+            character.id
+        )
+    )
 ) {
     val messages by viewModel.chatMessages.collectAsState()
-    val characterProfile by viewModel.characterProfile.collectAsState()
-    var text by remember { mutableStateOf("") }
-    val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-    var showErrorDialog by remember { mutableStateOf<ChatMessage?>(null) }
+    var inputText by remember { mutableStateOf("") }
 
-
-    if (showErrorDialog != null) {
-        AlertDialog(
-            onDismissRequest = { showErrorDialog = null },
-            title = { Text("Message Failed") },
-            text = { Text(showErrorDialog?.errorMessage ?: "An unknown error occurred.") },
-            confirmButton = {
-                Button(onClick = {
-                    viewModel.resendMessage(showErrorDialog!!)
-                    showErrorDialog = null
-                }) {
-                    Text("Resend")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showErrorDialog = null
-                    onNavigateToSettings()
-                }) {
-                    Text("Settings")
-                }
-            }
-        )
+    LaunchedEffect(character.id) {
+        // The ChatViewModel is already initialized with the characterId, so we don't need to call any method
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
-                        MaterialTheme.colorScheme.background
-                    ),
-                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(1000f, 2000f)
-                )
-            )
-    ) {
-        // Floating, rounded app bar
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp, start = 16.dp, end = 16.dp)
-                .height(72.dp)
-                .align(Alignment.TopCenter),
-            shape = RoundedCornerShape(32.dp),
-            shadowElevation = 10.dp,
-            color = MaterialTheme.colorScheme.surface
+    MagicalButterflyBackground {
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Header with magical styling
+            MagicalCard(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                if (characterProfile != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    
                     Avatar(
-                        name = characterProfile!!.name,
-                        avatarUri = characterProfile!!.avatarUri,
+                        name = character.name,
+                        avatarUri = character.avatarUri,
                         size = 40.dp
                     )
+                    
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable(onClick = onNavigateToProfile)
-                    ) {
+                    
+                    Column {
                         Text(
-                            characterProfile!!.name,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                            maxLines = 1
+                            text = character.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            "Online", // Placeholder for status
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            text = "Online",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
-                } else {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    Text("Loading...", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-        }
 
-        // Main chat content
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 104.dp, bottom = 90.dp)
-        ) {
+            // Messages
             LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                reverseLayout = true
             ) {
-                messages.groupBy {
+                // Group messages by date
+                val groupedMessages = messages.groupBy {
                     val instant = Instant.ofEpochMilli(it.timestamp)
                     LocalDateTime.ofInstant(instant, ZoneId.systemDefault()).toLocalDate()
-                }.forEach { (date, messagesOnDate) ->
-                    item {
-                        DateHeader(formatDate(date))
-                    }
-                    items(messagesOnDate) { message ->
+                }
+
+                // Reverse the order of grouped messages and within each group for proper display with reverseLayout
+                groupedMessages.toList().reversed().forEach { (date, messagesOnDate) ->
+                    // Reverse the messages within each date group so they appear in correct order
+                    items(messagesOnDate.reversed()) { message ->
                         val time = LocalDateTime.ofInstant(
                             Instant.ofEpochMilli(message.timestamp),
                             ZoneId.systemDefault()
                         )
                         val formattedTime = time.format(DateTimeFormatter.ofPattern("HH:mm"))
+                        
                         MessageBubble(
                             text = message.text,
                             isFromUser = message.isFromUser,
                             timestamp = formattedTime,
                             status = message.status,
-                            modifier = Modifier.padding(vertical = 2.dp),
-                            onClick = {
-                                if (message.status == com.example.thedaily.data.MessageStatus.ERROR) {
-                                    showErrorDialog = message
-                                }
-                            }
+                            edited = message.edited,
+                            deleteType = message.deleteType
                         )
+                    }
+                    item {
+                        DateHeader(formatDate(date))
                     }
                 }
             }
-        }
 
-        // Floating, pill-shaped input bar
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            shape = RoundedCornerShape(32.dp),
-            shadowElevation = 12.dp,
-            color = MaterialTheme.colorScheme.surface
-        ) {
+            // Input area with magical styling
             ChatInput(
-                message = text,
-                onMessageChange = { text = it },
+                message = inputText,
+                onMessageChange = { inputText = it },
                 onSend = {
-                    if (text.isNotBlank()) {
-                        viewModel.sendMessage(text)
-                        text = ""
-                        coroutineScope.launch {
-                            if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
-                        }
+                    if (inputText.isNotBlank()) {
+                        viewModel.sendMessage(inputText)
+                        inputText = ""
                     }
                 },
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                modifier = Modifier.fillMaxWidth()
             )
         }
-
-        // Auto-scroll to bottom on new message
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(index = messages.size - 1)
-            }
-        }
     }
+}
+
+@Composable
+private fun DeleteEditMenuDialog(
+    onEdit: () -> Unit,
+    onDeleteForMe: () -> Unit,
+    onDeleteForEveryone: () -> Unit,
+    onCancel: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Message Options") },
+        text = {
+            Column {
+                TextButton(onClick = onEdit) { Text("Edit Message") }
+                TextButton(onClick = onDeleteForMe) { Text("Delete for Me") }
+                TextButton(onClick = onDeleteForEveryone) { Text("Delete for Everyone") }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onCancel) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun EditMessageDialog(
+    editText: String,
+    onEditTextChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Edit Message") },
+        text = {
+            OutlinedTextField(
+                value = editText,
+                onValueChange = onEditTextChange,
+                label = { Text("Message") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(onClick = onSave) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
@@ -243,19 +213,18 @@ private fun DateHeader(date: String) {
             Text(
                 text = date,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
-private fun formatDate(date: LocalDate): String {
-    val today = LocalDate.now()
-    val yesterday = today.minusDays(1)
-
-    return when (date) {
-        today -> "Today"
-        yesterday -> "Yesterday"
-        else -> date.format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))
+// Helper function to format date
+private fun formatDate(date: java.time.LocalDate): String {
+    val now = java.time.LocalDate.now()
+    return when {
+        date == now -> "Today"
+        date == now.minusDays(1) -> "Yesterday"
+        else -> date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
     }
 }

@@ -8,202 +8,317 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Api
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thedaily.data.ApiPreset
 import com.example.thedaily.data.CharacterProfile
+import com.example.thedaily.ui.components.MagicalButterflyBackground
+import com.example.thedaily.ui.components.MagicalCard
+import com.example.thedaily.ui.components.MagicalButton
+import com.example.thedaily.ui.components.ButterflyWingDecoration
+import com.example.thedaily.ui.theme.ButterflyColors
+import com.example.thedaily.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    savedApiUrl: String,
-    savedApiKey: String,
-    availableModels: List<String>,
-    isLoading: Boolean,
-    presets: List<ApiPreset>,
-    onFetchModels: (String, String) -> Unit,
-    onSave: (String, String, String) -> Unit,
-    onSavePreset: (String, String, String, String) -> Unit,
-    onDeletePreset: (String) -> Unit,
-    onLoadPreset: (String) -> Unit,
-    characterProfiles: List<CharacterProfile>,
-    onSaveCharacterProfile: (CharacterProfile) -> Unit,
-    onDeleteCharacterProfile: (Long) -> Unit,
-    onSetCurrentCharacter: (Long) -> Unit
+    onNavigateBack: () -> Unit,
+    settingsViewModel: SettingsViewModel = viewModel()
 ) {
-    var apiUrl by remember { mutableStateOf(savedApiUrl) }
-    var apiKey by remember { mutableStateOf(savedApiKey) }
+    val settingsFlow by settingsViewModel.settingsFlow.collectAsState(initial = Triple("", "", ""))
+    val availableModels by settingsViewModel.availableModels.collectAsState(initial = emptyList())
+    val isLoading by settingsViewModel.isLoading.collectAsState(initial = false)
+    val presets by settingsViewModel.presets.collectAsState(initial = emptyList())
+    
+    var apiUrl by remember { mutableStateOf("") }
+    var apiKey by remember { mutableStateOf("") }
     var selectedModel by remember { mutableStateOf("") }
-    var isDropdownExpanded by remember { mutableStateOf(false) }
-    var presetName by remember { mutableStateOf("") }
-    var showSavePresetDialog by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(settingsFlow) {
+        apiUrl = settingsFlow.first
+        apiKey = settingsFlow.second
+        selectedModel = settingsFlow.third
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Surface(
-            shadowElevation = 8.dp,
-            color = MaterialTheme.colorScheme.background
+    MagicalButterflyBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp)
         ) {
+            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 32.dp, bottom = 16.dp, start = 24.dp, end = 24.dp),
+                    .padding(vertical = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
                 Text(
-                    "Settings",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 32.sp,
-                        color = MaterialTheme.colorScheme.onBackground
-                    ),
-                    modifier = Modifier.weight(1f)
+                    text = "Settings",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                ButterflyWingDecoration(
+                    size = 20.dp,
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
                 )
             }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            item { Text("API Settings", style = MaterialTheme.typography.headlineMedium) }
 
-            item {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(8.dp, RoundedCornerShape(24.dp)),
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = apiUrl,
-                            onValueChange = { apiUrl = it },
-                            label = { Text("API Base URL") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = apiKey,
-                            onValueChange = { apiKey = it },
-                            label = { Text("API Key") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Button(
-                            onClick = { onFetchModels(apiUrl, apiKey) },
-                            enabled = apiUrl.isNotBlank() && apiKey.isNotBlank() && !isLoading,
-                            modifier = Modifier.fillMaxWidth()
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                // API Configuration Section
+                item {
+                    MagicalCard {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text("Fetch Available Models")
-                        }
-
-                        if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                        }
-
-                        ExposedDropdownMenuBox(
-                            expanded = isDropdownExpanded,
-                            onExpandedChange = { isDropdownExpanded = !isDropdownExpanded },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = selectedModel,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Select Model") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDropdownExpanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = isDropdownExpanded,
-                                onDismissRequest = { isDropdownExpanded = false }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                availableModels.forEach { modelId ->
-                                    DropdownMenuItem(
-                                        text = { Text(modelId) },
-                                        onClick = {
-                                            selectedModel = modelId
-                                            isDropdownExpanded = false
-                                        }
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "API Configuration",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+
+                            // API Base URL
+                            OutlinedTextField(
+                                value = apiUrl,
+                                onValueChange = { apiUrl = it },
+                                label = { 
+                                    Text(
+                                        "API Base URL",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    ) 
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+
+                            // API Key
+                            OutlinedTextField(
+                                value = apiKey,
+                                onValueChange = { apiKey = it },
+                                label = { 
+                                    Text(
+                                        "API Key",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    ) 
+                                },
+                                visualTransformation = PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+
+                            // Model Selection
+                            var isDropdownExpanded by remember { mutableStateOf(false) }
+                            
+                            ExposedDropdownMenuBox(
+                                expanded = isDropdownExpanded,
+                                onExpandedChange = { isDropdownExpanded = !isDropdownExpanded }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedModel,
+                                    onValueChange = { },
+                                    readOnly = true,
+                                    label = { 
+                                        Text(
+                                            "Selected Model",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        ) 
+                                    },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDropdownExpanded) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                
+                                ExposedDropdownMenu(
+                                    expanded = isDropdownExpanded,
+                                    onDismissRequest = { isDropdownExpanded = false }
+                                ) {
+                                    availableModels.forEach { model ->
+                                        DropdownMenuItem(
+                                            text = { Text(model) },
+                                            onClick = {
+                                                selectedModel = model
+                                                isDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Action Buttons
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                MagicalButton(
+                                    onClick = { 
+                                        settingsViewModel.fetchAvailableModels(apiUrl, apiKey)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    if (isLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Fetch Models",
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
+                                
+                                MagicalButton(
+                                    onClick = { 
+                                        settingsViewModel.saveSettings(apiUrl, apiKey, selectedModel)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Save,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Save",
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        style = MaterialTheme.typography.labelLarge
                                     )
                                 }
                             }
                         }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { onSave(apiUrl, apiKey, selectedModel) },
-                                enabled = selectedModel.isNotBlank(),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Save Settings")
-                            }
-
-                            Button(
-                                onClick = { showSavePresetDialog = true },
-                                enabled = selectedModel.isNotBlank(),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Save, contentDescription = "Save Preset")
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Save as Preset")
-                            }
-                        }
                     }
                 }
-            }
 
-            item {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(8.dp, RoundedCornerShape(24.dp)),
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surface
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("Saved Presets", style = MaterialTheme.typography.titleMedium)
-                        if (presets.isEmpty()) {
-                            Text(
-                                "No presets saved yet",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
+                // Presets Section
+                item {
+                    MagicalCard {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Favorite,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Text(
+                                        text = "Presets",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                
+                                IconButton(
+                                    onClick = { 
+                                        settingsViewModel.savePreset(
+                                            "New Preset",
+                                            apiUrl,
+                                            apiKey,
+                                            selectedModel
+                                        )
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Add Preset",
+                                        tint = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+
                             presets.forEach { preset ->
                                 PresetItem(
                                     preset = preset,
-                                    onLoad = {
+                                    onLoadClick = { 
                                         apiUrl = preset.apiUrl
                                         apiKey = preset.apiKey
                                         selectedModel = preset.modelId
-                                        onLoadPreset(preset.name)
+                                        settingsViewModel.loadPreset(preset.name)
                                     },
-                                    onDelete = { onDeletePreset(preset.name) }
+                                    onDeleteClick = { 
+                                        settingsViewModel.deletePreset(preset.name) 
+                                    }
                                 )
                             }
                         }
@@ -212,73 +327,64 @@ fun SettingsScreen(
             }
         }
     }
-
-    if (showSavePresetDialog) {
-        AlertDialog(
-            onDismissRequest = { showSavePresetDialog = false },
-            title = { Text("Save Preset") },
-            text = {
-                OutlinedTextField(
-                    value = presetName,
-                    onValueChange = { presetName = it },
-                    label = { Text("Preset Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (presetName.isNotBlank()) {
-                            onSavePreset(presetName, apiUrl, apiKey, selectedModel)
-                            showSavePresetDialog = false
-                            presetName = ""
-                        }
-                    }
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                Button(onClick = { showSavePresetDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
 @Composable
-fun PresetItem(preset: ApiPreset, onLoad: () -> Unit, onDelete: () -> Unit) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(18.dp),
-        shadowElevation = 4.dp,
-        color = MaterialTheme.colorScheme.background
+fun PresetItem(
+    preset: ApiPreset,
+    onLoadClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    MagicalCard(
+        modifier = modifier
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                preset.name,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-            Row {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = preset.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = preset.apiUrl.take(30) + if (preset.apiUrl.length > 30) "..." else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Button(
-                    onClick = onLoad,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) { Text("Load", color = Color.White) }
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete Preset", tint = MaterialTheme.colorScheme.error)
+                    onClick = onLoadClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    )
+                ) {
+                    Text(
+                        text = "Load",
+                        color = MaterialTheme.colorScheme.onSecondary
+                    )
+                }
+                
+                IconButton(onClick = onDeleteClick) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
     }
 }
+
